@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matrix OS - Clean Print Edition</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <style>
+        :root {
+            --matrix-green: #00ff41;
+            --matrix-dark: #003b00;
+            --bg-color: #050505;
+            --panel-bg: rgba(0, 15, 0, 0.85);
+            --text-main: #00ff41;
+            --border-color: #008f11;
+        }
+
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0; padding: 20px;
+            display: flex; flex-wrap: wrap; justify-content: center; gap: 20px;
+            min-height: 100vh; overflow-x: hidden;
+        }
+
+        body::after {
+            content: " "; display: block; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+            background-size: 100% 4px;
+            z-index: 99999; pointer-events: none;
+        }
+
+        /* =========================================
+           1. MATRIX CANVAS SPLASH SCREEN
+           ========================================= */
+        #matrix-splash {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #000; z-index: 10000;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 1s ease-out, transform 1s ease-out;
+        }
+
+        canvas#matrix-rain {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;
+        }
+
+        #hack-terminal {
+            position: relative; z-index: 2; background: rgba(0, 0, 0, 0.85);
+            border: 1px solid var(--matrix-green); padding: 30px; min-width: 300px;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+            text-shadow: 0 0 5px var(--matrix-green); font-size: 1.2rem; line-height: 1.5;
+        }
+        
+        .cursor { display: inline-block; width: 12px; height: 1.2rem; background: var(--matrix-green); animation: blink 0.8s infinite; vertical-align: bottom; }
+        @keyframes blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+
+        #white-flash {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #fff; z-index: 9999; opacity: 0; pointer-events: none;
+            transition: opacity 0.5s ease-out;
+        }
+
+        /* =========================================
+           2. TEMA UI DASHBOARD TERMINAL
+           ========================================= */
+        .cyber-panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            box-shadow: inset 0 0 15px rgba(0, 255, 65, 0.1), 0 0 20px rgba(0, 0, 0, 0.8);
+            padding: 20px; width: 100%; max-width: 440px;
+            position: relative; opacity: 0; transform: scale(0.95);
+            animation: systemBoot 1s cubic-bezier(0.175, 0.885, 0.32, 1.275) 5s forwards;
+        }
+
+        .cyber-panel::before { content: ''; position: absolute; top: -2px; left: -2px; width: 15px; height: 15px; border-top: 3px solid var(--matrix-green); border-left: 3px solid var(--matrix-green); }
+        .cyber-panel::after { content: ''; position: absolute; bottom: -2px; right: -2px; width: 15px; height: 15px; border-bottom: 3px solid var(--matrix-green); border-right: 3px solid var(--matrix-green); }
+
+        @keyframes systemBoot { to { opacity: 1; transform: scale(1); } }
+
+        h2 { margin-top: 0; font-size: 1.2rem; color: var(--matrix-green); border-bottom: 1px dashed var(--border-color); padding-bottom: 10px; letter-spacing: 2px; text-transform: uppercase; text-shadow: 0 0 10px rgba(0, 255, 65, 0.5); }
+        h2.ui-title::before { content: 'root@zebra-zd220:~# '; opacity: 0.6; }
+        
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .form-group { margin-bottom: 10px; }
+        label { display: block; font-size: 0.75rem; font-weight: bold; margin-bottom: 4px; color: var(--matrix-green); opacity: 0.8; }
+        .section-title { font-size: 0.85rem; font-weight: bold; color: var(--matrix-green); margin: 20px 0 10px 0; border-bottom: 1px solid rgba(0,255,65,0.2); padding-bottom: 4px; text-transform: uppercase; }
+        
+        .slot-box { background: rgba(0, 20, 0, 0.4); border: 1px dashed var(--border-color); padding: 12px; margin-bottom: 15px; position: relative; }
+        .slot-title { position: absolute; top: -10px; left: 10px; background: var(--bg-color); padding: 0 5px; font-size: 0.8rem; font-weight: bold; color: #fff; }
+
+        input[type="text"] {
+            width: 100%; padding: 8px; border: 1px solid var(--border-color); box-sizing: border-box;
+            background: rgba(0, 0, 0, 0.6); color: #fff; font-size: 0.9rem; font-family: 'Courier New', Courier, monospace;
+            transition: 0.3s; margin-bottom: 8px;
+        }
+        input[type="text"]:focus { outline: none; border-color: var(--matrix-green); background: rgba(0, 255, 65, 0.1); box-shadow: 0 0 10px rgba(0, 255, 65, 0.2); }
+        
+        input[type="range"] { width: 100%; cursor: pointer; accent-color: var(--matrix-green); }
+        .val-display { font-size: 0.8rem; font-weight: bold; color: #000; float: right; background: var(--matrix-green); padding: 2px 6px; }
+
+        .checkbox-group { display: flex; justify-content: space-between; background: rgba(0, 20, 0, 0.6); padding: 10px; border: 1px dashed var(--border-color); }
+        .checkbox-item { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer; color: var(--matrix-green); opacity: 0.7; transition: 0.3s; }
+        .checkbox-item input[type="checkbox"] { accent-color: var(--matrix-green); }
+        .checkbox-item:hover, .checkbox-item input:checked + span { opacity: 1; text-shadow: 0 0 8px var(--matrix-green); }
+
+        .btn-group { display: flex; gap: 12px; margin-top: 20px; }
+        button { border: 1px solid var(--matrix-green); padding: 12px; font-size: 0.9rem; font-weight: bold; font-family: inherit; cursor: pointer; transition: 0.3s; color: var(--matrix-green); text-transform: uppercase; background: transparent; position: relative; overflow: hidden; }
+        button:hover { background: var(--matrix-green); color: #000; box-shadow: 0 0 20px rgba(0, 255, 65, 0.6); }
+        
+        .btn-print { background: rgba(0, 255, 65, 0.1); flex: 2; }
+        .btn-print::before { content: '>> '; animation: blink 1s infinite; }
+
+        /* =========================================
+           3. AREA PREVIEW KERTAS
+           ========================================= */
+        .preview-wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+        
+        .crosshair { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+        .crosshair::before { content: ''; position: absolute; top: 50%; left: 10px; right: 10px; height: 1px; background: rgba(0, 255, 65, 0.3); }
+        .crosshair::after { content: ''; position: absolute; left: 50%; top: 10px; bottom: 10px; width: 1px; background: rgba(0, 255, 65, 0.3); }
+
+        .print-row { display: flex; justify-content: space-between; width: 104mm; height: 15mm; background: #fff; box-sizing: border-box; z-index: 2; box-shadow: 0 0 30px rgba(0, 255, 65, 0.2); }
+        .label-item { width: 33mm; height: 15mm; background: white; color: black; display: flex; flex-direction: column; align-items: center; justify-content: center; box-sizing: border-box; border: 1px dashed #64748b; overflow: hidden; }
+        .label-content { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; text-align: center; box-sizing: border-box; }
+        .label-name { font-weight: bold; white-space: nowrap; overflow: hidden; max-width: 100%; display: block; color: black; font-family: Arial, sans-serif; }
+        .label-price { font-weight: bold; display: block; color: black; font-family: Arial, sans-serif; }
+        svg.barcode-svg { margin: 1px 0; display: block; }
+
+        /* =========================================
+           4. KUNCI MODE CETAK (ANTI BOCOR & ANTI HALAMAN LEBIH)
+           ========================================= */
+        @media print {
+            /* 1. Kunci ukuran kanvas cetak mutlak */
+            html, body {
+                width: 104mm !important;
+                height: 15mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: white !important;
+                overflow: hidden !important; /* Mencegah halaman berlebih */
+            }
+
+            /* 2. Sembunyikan SEMUA elemen UI Hacker */
+            #matrix-splash, 
+            #white-flash, 
+            .cyber-panel:first-of-type, /* Panel Input Kiri */
+            h2, /* Semua Judul */
+            .crosshair, 
+            body::after {
+                display: none !important;
+            }
+
+            /* 3. Bebaskan Wrapper Preview dari styling layar */
+            .cyber-panel.preview-wrapper {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 104mm !important;
+                height: 15mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: none !important;
+                box-shadow: none !important;
+                background: white !important;
+                transform: none !important;
+                animation: none !important;
+            }
+
+            /* 4. Pastikan Baris Cetak Tampil Sempurna */
+            .print-row {
+                display: flex !important;
+                width: 104mm !important;
+                height: 15mm !important;
+                box-shadow: none !important;
+            }
+
+            /* Hilangkan border putus-putus pada stiker */
+            .label-item {
+                border: none !important;
+            }
+
+            @page { 
+                size: 104mm 15mm; 
+                margin: 0; 
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div id="white-flash"></div>
+
+<div id="matrix-splash">
+    <canvas id="matrix-rain"></canvas>
+    <div id="hack-terminal">
+        <span id="term-text"></span><span class="cursor"></span>
+    </div>
+</div>
+
+<div class="cyber-panel">
+    <h2 class="ui-title">DATA_INJECTION</h2>
+    
+    <div class="slot-box">
+        <div class="slot-title">>_ SLOT_01 (Kiri)</div>
+        <input type="text" id="inputName1" value="PRODUK A" placeholder="Nama Barang 1" oninput="updatePreview()" autocomplete="off">
+        <div class="grid-2">
+            <input type="text" id="inputCode1" value="10000001" placeholder="Kode SKU" oninput="updatePreview()" autocomplete="off">
+            <input type="text" id="inputPrice1" value="Rp 10.000" placeholder="Harga" oninput="updatePreview()" autocomplete="off">
+        </div>
+    </div>
+
+    <div class="slot-box">
+        <div class="slot-title">>_ SLOT_02 (Tengah)</div>
+        <input type="text" id="inputName2" value="PRODUK B" placeholder="Nama Barang 2" oninput="updatePreview()" autocomplete="off">
+        <div class="grid-2">
+            <input type="text" id="inputCode2" value="20000002" placeholder="Kode SKU" oninput="updatePreview()" autocomplete="off">
+            <input type="text" id="inputPrice2" value="Rp 20.000" placeholder="Harga" oninput="updatePreview()" autocomplete="off">
+        </div>
+    </div>
+
+    <div class="slot-box">
+        <div class="slot-title">>_ SLOT_03 (Kanan)</div>
+        <input type="text" id="inputName3" value="PRODUK C" placeholder="Nama Barang 3" oninput="updatePreview()" autocomplete="off">
+        <div class="grid-2">
+            <input type="text" id="inputCode3" value="30000003" placeholder="Kode SKU" oninput="updatePreview()" autocomplete="off">
+            <input type="text" id="inputPrice3" value="Rp 30.000" placeholder="Harga" oninput="updatePreview()" autocomplete="off">
+        </div>
+    </div>
+
+    <div class="section-title">Render Nodes</div>
+    <div class="checkbox-group">
+        <label class="checkbox-item"><input type="checkbox" id="showName" checked onchange="updatePreview()"> <span>NAMA</span></label>
+        <label class="checkbox-item"><input type="checkbox" id="showBarcode" checked onchange="updatePreview()"> <span>CODE</span></label>
+        <label class="checkbox-item"><input type="checkbox" id="showPrice" checked onchange="updatePreview()"> <span>VAL</span></label>
+    </div>
+
+    <div class="section-title">Matrix Grid Targets</div>
+    <div class="checkbox-group">
+        <label class="checkbox-item"><input type="checkbox" id="cekCol1" checked onchange="updatePreview()"> <span>COL_1</span></label>
+        <label class="checkbox-item"><input type="checkbox" id="cekCol2" checked onchange="updatePreview()"> <span>COL_2</span></label>
+        <label class="checkbox-item"><input type="checkbox" id="cekCol3" checked onchange="updatePreview()"> <span>COL_3</span></label>
+    </div>
+
+    <div class="section-title">Scale Calibration</div>
+    <div class="grid-2">
+        <div class="form-group">
+            <label>Font Size <span class="val-display" id="valFontName">8px</span></label>
+            <input type="range" id="sizeFontName" min="5" max="14" step="0.5" value="8" oninput="updatePreview()">
+        </div>
+        <div class="form-group">
+            <label>Value Size <span class="val-display" id="valFontPrice">9px</span></label>
+            <input type="range" id="sizeFontPrice" min="5" max="14" step="0.5" value="9" oninput="updatePreview()">
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <div class="form-group">
+            <label>BC_Width <span class="val-display" id="valBcWidth">1.1</span></label>
+            <input type="range" id="sizeBcWidth" min="0.8" max="2" step="0.1" value="1.1" oninput="updatePreview()">
+        </div>
+        <div class="form-group">
+            <label>BC_Height <span class="val-display" id="valBcHeight">20px</span></label>
+            <input type="range" id="sizeBcHeight" min="10" max="40" step="1" value="20" oninput="updatePreview()">
+        </div>
+    </div>
+
+    <div class="section-title">Axis Margins (X/Y)</div>
+    <div class="grid-2">
+        <div class="form-group">
+            <label>Top <span class="val-display" id="valMarginTop">1px</span></label>
+            <input type="range" id="sizeMarginTop" min="0" max="10" step="1" value="1" oninput="updatePreview()">
+        </div>
+        <div class="form-group">
+            <label>Bottom <span class="val-display" id="valMarginBottom">1px</span></label>
+            <input type="range" id="sizeMarginBottom" min="0" max="10" step="1" value="1" oninput="updatePreview()">
+        </div>
+        <div class="form-group">
+            <label>Left <span class="val-display" id="valMarginLeft">1px</span></label>
+            <input type="range" id="sizeMarginLeft" min="0" max="10" step="1" value="1" oninput="updatePreview()">
+        </div>
+        <div class="form-group">
+            <label>Right <span class="val-display" id="valMarginRight">1px</span></label>
+            <input type="range" id="sizeMarginRight" min="0" max="10" step="1" value="1" oninput="updatePreview()">
+        </div>
+    </div>
+
+    <div class="btn-group">
+        <button class="btn-reset" onclick="resetSettings()">./FLUSH_CACHE</button>
+        <button class="btn-print" onclick="window.print()">EXECUTE_PRINT</button>
+    </div>
+</div>
+
+<div class="cyber-panel preview-wrapper">
+    <h2 style="align-self: flex-start; border: none; font-size: 0.9rem; margin-bottom: 20px;">[ OUT_STREAM_PREVIEW ]</h2>
+    
+    <div style="position: relative;">
+        <div class="crosshair"></div>
+        <div class="print-row">
+            <div class="label-item"><div class="label-content" id="content1"><div class="label-name" id="name1"></div><svg id="barcode1" class="barcode-svg"></svg><div class="label-price" id="price1"></div></div></div>
+            <div class="label-item"><div class="label-content" id="content2"><div class="label-name" id="name2"></div><svg id="barcode2" class="barcode-svg"></svg><div class="label-price" id="price2"></div></div></div>
+            <div class="label-item"><div class="label-content" id="content3"><div class="label-name" id="name3"></div><svg id="barcode3" class="barcode-svg"></svg><div class="label-price" id="price3"></div></div></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // 1. LOGIKA CANVAS MATRIX RAIN
+    // ==========================================
+    const canvas = document.getElementById('matrix-rain');
+    const ctx = canvas.getContext('2d');
+    
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    
+    const matrixChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン';
+    const charsArray = matrixChars.split('');
+    
+    const fontSize = 16;
+    const columns = canvas.width / fontSize;
+    const drops = [];
+    
+    for (let x = 0; x < columns; x++) { drops[x] = Math.random() * -100; }
+    
+    let matrixInterval;
+    let speedMultiplier = 1;
+
+    function drawMatrix() {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = '#0f0';
+        ctx.font = fontSize + 'px monospace';
+        
+        for (let i = 0; i < drops.length; i++) {
+            const text = charsArray[Math.floor(Math.random() * charsArray.length)];
+            ctx.fillStyle = (Math.random() > 0.9) ? '#fff' : '#0f0';
+            ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+            
+            if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                drops[i] = 0;
+            }
+            drops[i] += speedMultiplier;
+        }
+    }
+
+    // ==========================================
+    // 2. LOGIKA KETIKAN TERMINAL
+    // ==========================================
+    window.onload = function() {
+        updatePreview();
+        matrixInterval = setInterval(drawMatrix, 35);
+        
+        const terminal = document.getElementById('term-text');
+        const hackMessages = [
+            "CONNECTING TO LOCAL_NODE...",
+            "DECRYPTING ZEBRA PROTOCOL...",
+            "BYPASSING FIREWALL...",
+            "ACCESS GRANTED....",
+            "WELCOME,TO AI DEVICES..."
+        ];
+        
+        let msgIndex = 0;
+        let charIndex = 0;
+
+        function typeLine() {
+            if (msgIndex < hackMessages.length) {
+                if (charIndex < hackMessages[msgIndex].length) {
+                    terminal.innerHTML += hackMessages[msgIndex].charAt(charIndex);
+                    charIndex++;
+                    setTimeout(typeLine, 40); 
+                } else {
+                    terminal.innerHTML += "<br>";
+                    msgIndex++;
+                    charIndex = 0;
+                    setTimeout(typeLine, 500); 
+                }
+            } else {
+                speedMultiplier = 3; 
+                setTimeout(() => {
+                    const flash = document.getElementById('white-flash');
+                    flash.style.opacity = '1'; 
+                    setTimeout(() => {
+                        clearInterval(matrixInterval);
+                        document.getElementById('matrix-splash').style.display = 'none';
+                        flash.style.opacity = '0';
+                    }, 500);
+                }, 800); 
+            }
+        }
+        setTimeout(typeLine, 1000); 
+    };
+
+    // ==========================================
+    // 3. LOGIKA INTI BARCODE (MULTI-INPUT)
+    // ==========================================
+    function resetSettings() {
+        document.getElementById('inputName1').value = "PRODUK A";
+        document.getElementById('inputCode1').value = "10000001";
+        document.getElementById('inputPrice1').value = "Rp 10.000";
+
+        document.getElementById('inputName2').value = "PRODUK B";
+        document.getElementById('inputCode2').value = "20000002";
+        document.getElementById('inputPrice2').value = "Rp 20.000";
+
+        document.getElementById('inputName3').value = "PRODUK C";
+        document.getElementById('inputCode3').value = "30000003";
+        document.getElementById('inputPrice3').value = "Rp 30.000";
+
+        document.getElementById('showName').checked = true;
+        document.getElementById('showBarcode').checked = true;
+        document.getElementById('showPrice').checked = true;
+        document.getElementById('cekCol1').checked = true;
+        document.getElementById('cekCol2').checked = true;
+        document.getElementById('cekCol3').checked = true;
+        document.getElementById('sizeFontName').value = 8;
+        document.getElementById('sizeFontPrice').value = 9;
+        document.getElementById('sizeBcWidth').value = 1.1;
+        document.getElementById('sizeBcHeight').value = 20;
+        document.getElementById('sizeMarginTop').value = 1;
+        document.getElementById('sizeMarginBottom').value = 1;
+        document.getElementById('sizeMarginLeft').value = 1;
+        document.getElementById('sizeMarginRight').value = 1;
+        
+        updatePreview();
+    }
+
+    function updatePreview() {
+        const showName = document.getElementById('showName').checked;
+        const showBarcode = document.getElementById('showBarcode').checked;
+        const showPrice = document.getElementById('showPrice').checked;
+
+        const fontName = document.getElementById('sizeFontName').value;
+        const fontPrice = document.getElementById('sizeFontPrice').value;
+        const bcWidth = document.getElementById('sizeBcWidth').value;
+        const bcHeight = document.getElementById('sizeBcHeight').value;
+        
+        const marginTop = document.getElementById('sizeMarginTop').value;
+        const marginBottom = document.getElementById('sizeMarginBottom').value;
+        const marginLeft = document.getElementById('sizeMarginLeft').value;
+        const marginRight = document.getElementById('sizeMarginRight').value;
+
+        document.getElementById('valFontName').innerText = fontName + "px";
+        document.getElementById('valFontPrice').innerText = fontPrice + "px";
+        document.getElementById('valBcWidth').innerText = bcWidth;
+        document.getElementById('valBcHeight').innerText = bcHeight + "px";
+        document.getElementById('valMarginTop').innerText = marginTop + "px";
+        document.getElementById('valMarginBottom').innerText = marginBottom + "px";
+        document.getElementById('valMarginLeft').innerText = marginLeft + "px";
+        document.getElementById('valMarginRight').innerText = marginRight + "px";
+
+        for (let i = 1; i <= 3; i++) {
+            const name = document.getElementById(`inputName${i}`).value.toUpperCase();
+            const code = document.getElementById(`inputCode${i}`).value || "000";
+            const price = document.getElementById(`inputPrice${i}`).value;
+
+            const isCheckedCol = document.getElementById(`cekCol${i}`).checked;
+            const contentBox = document.getElementById(`content${i}`);
+            
+            const elName = document.getElementById(`name${i}`);
+            const elBarcode = document.getElementById(`barcode${i}`);
+            const elPrice = document.getElementById(`price${i}`);
+
+            contentBox.style.visibility = isCheckedCol ? 'visible' : 'hidden';
+
+            if (isCheckedCol) {
+                elName.style.display = showName ? 'block' : 'none';
+                elBarcode.style.display = showBarcode ? 'block' : 'none';
+                elPrice.style.display = showPrice ? 'block' : 'none';
+
+                elName.innerText = name;
+                elName.style.fontSize = fontName + "px";
+                
+                elPrice.innerText = price;
+                elPrice.style.fontSize = fontPrice + "px";
+
+                contentBox.style.padding = `${marginTop}px ${marginRight}px ${marginBottom}px ${marginLeft}px`;
+
+                if (showBarcode) {
+                    try {
+                        JsBarcode(`#barcode${i}`, code, {
+                            format: "CODE128",
+                            width: parseFloat(bcWidth),
+                            height: parseInt(bcHeight),
+                            displayValue: false,
+                            margin: 0,
+                            lineColor: "#000000"
+                        });
+                        elBarcode.style.height = bcHeight + "px";
+                    } catch (e) {
+                        console.log("Kode Barcode tidak valid di Slot " + i);
+                    }
+                }
+            }
+        }
+    }
+</script>
+
+</body>
+</html>
